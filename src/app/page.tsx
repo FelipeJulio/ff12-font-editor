@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { GlyphCanvas } from "@/components/GlyphCanvas";
 import { parseAtlas } from "@/lib/atlas/parseAtlas";
 import { parseKerningFile } from "@/lib/kerning/paserKerning";
-import { exportCanvasAsPng } from "@/components/hooks/useCanvasExport";
+import { exportCanvasAsPng } from "../components/hooks/useCanvasExport";
 import {
   loadFromLocalStorage,
   saveToLocalStorage,

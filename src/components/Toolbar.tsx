@@ -421,7 +421,7 @@ export function Toolbar({
             <Button
               variant="destructive"
               disabled={glyphs.length === 0 && !header && kerning.length === 0}
-              className="cursor-pointer"
+              className="cursor-pointer font-bold"
               onClick={() => {
                 setResetLoading(true);
                 setTimeout(() => {
@@ -441,7 +441,7 @@ export function Toolbar({
                 asChild
                 disabled={glyphs.length === 0 || !header}
               >
-                <Button className="cursor-pointer">Download</Button>
+                <Button className="cursor-pointer ">Download</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuLabel>Atlas files</DropdownMenuLabel>
@@ -523,7 +523,7 @@ export function Toolbar({
         >
           <DialogHeader>
             <DialogTitle>
-              Generating <span className=" text-gray-300">{exportName}</span>{" "}
+              Generating <span className=" text-gray-500">{exportName}</span>{" "}
               file...
             </DialogTitle>
           </DialogHeader>

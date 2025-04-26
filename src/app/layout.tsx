@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { AppWrapper } from "@/components/AppWrapper";
+import { metadata } from "@/app/metadata";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,9 +15,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "FF12 Font Editor",
-  description: "Tool for visual editing of FFXII font files",
+export { metadata };
+
+export const viewport: Viewport = {
+  themeColor: "black",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({
