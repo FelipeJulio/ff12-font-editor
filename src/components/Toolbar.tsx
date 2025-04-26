@@ -1,6 +1,15 @@
 "use client";
 
 import {
+  FontStyleOption,
+  TextAlignX,
+  TextAlignY,
+  ToolbarProps,
+} from "@/types/typings";
+
+import { useRouter } from "next/navigation";
+
+import {
   Upload,
   Download,
   AlignHorizontalJustifyEnd,
@@ -9,6 +18,7 @@ import {
   AlignVerticalJustifyEnd,
   AlignVerticalJustifyStart,
   AlignVerticalJustifyCenter,
+  Loader2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +29,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Select,
@@ -39,68 +51,33 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 
-import { exportGlyphBackup, importGlyphBackup } from "@/lib/useBackup";
-import { calculateNewNXNY } from "@/lib/calculateNewNXNY";
-import { generateDatBuffer } from "@/lib/generateDatBuffer";
-import { generateTxtFile } from "@/lib/generateTxtFile";
-
 import {
-  Glyph,
-  FontHeader,
-  FontWeightOption,
-  FontStyleOption,
-  TextAlignX,
-  TextAlignY,
-} from "@/types/typings";
+  clearEditorStorage,
+  exportGlyphBackup,
+  importGlyphBackup,
+} from "@/components/hooks/useBackup";
+import { calculateNewNXNY } from "@/lib/atlas/calculateNewNXNY";
+import { generateAtlasDatBuffer } from "@/lib/atlas/generateAtlasDatBuffer";
+import { generateAtlasTxtFile } from "@/lib/atlas/generateAtlasTxtFile";
 
 import clsx from "clsx";
 
 import { saveAs } from "file-saver";
 import { useState } from "react";
-import { exportProgress } from "@/lib/exportProgress";
-
-interface ToolbarProps {
-  canvasRef: React.RefObject<HTMLDivElement | null>;
-  onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onFontUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onBackupUpload: (glyphs: Glyph[]) => void;
-  header: FontHeader | null;
-  glyphs: Glyph[];
-  fontSize: string;
-  setFontSize: (val: string) => void;
-  fontWeight: FontWeightOption;
-  setFontWeight: (val: FontWeightOption) => void;
-  fontStyle: FontStyleOption;
-  setFontStyle: (val: FontStyleOption) => void;
-  fontColor: string;
-  setFontColor: (val: string) => void;
-  alignX: TextAlignX;
-  setAlignX: (val: TextAlignX) => void;
-  alignY: TextAlignY;
-  setAlignY: (val: TextAlignY) => void;
-  padding: { top: number; right: number; bottom: number; left: number };
-  setPadding: (pad: {
-    top: number;
-    right: number;
-    bottom: number;
-    left: number;
-  }) => void;
-  onExportPng: () => void;
-  lineHeight: number;
-  setLineHeight: (val: number) => void;
-  onReset: () => void;
-  onOverlayUpload: (img: string) => void;
-  showOverlay: boolean;
-  setShowOverlay: (val: boolean) => void;
-  overlayImage?: string;
-}
+import { exportProgress } from "@/lib/utils/exportProgress";
+import { generateKerningPairs } from "@/lib/kerning/generateKerningPairs";
+import { exportKerningKerFile } from "@/lib/kerning/exportKerningKerFile";
+import { exportKerningTxtFile } from "@/lib/kerning/exportKerningTxtFile";
+import { Toggle } from "./ui/toggle";
 
 export function Toolbar({
   canvasRef,
-  onFileUpload,
+  onAtlasUpload,
+  onKerningUpload,
   onFontUpload,
   onBackupUpload,
   glyphs,
+  kerning,
   fontSize,
   setFontSize,
   fontWeight,
@@ -125,8 +102,12 @@ export function Toolbar({
   overlayImage,
   header,
 }: ToolbarProps) {
+  const router = useRouter();
+
   const [openDialog, setOpenDialog] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [exportName, setExportName] = useState("");
   const updatedGlyphs = calculateNewNXNY(canvasRef.current, glyphs);
 
   const handleBackupImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -163,9 +144,9 @@ export function Toolbar({
 
   const onExportDat = () => {
     if (!header) return;
-    const datBuffer = generateDatBuffer(header, updatedGlyphs);
+    const datBuffer = generateAtlasDatBuffer(header, updatedGlyphs);
     const blob = new Blob([datBuffer], { type: "application/octet-stream" });
-    saveAs(blob, "exported_font.dat");
+    saveAs(blob, "exported_atlas.dat");
   };
 
   const exportAtlas = async () => {
@@ -175,9 +156,23 @@ export function Toolbar({
 
   const onExportTtx = () => {
     if (!header) return;
-    const content = generateTxtFile(header, updatedGlyphs);
+    const content = generateAtlasTxtFile(header, updatedGlyphs);
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    saveAs(blob, "exported_font.txt");
+    saveAs(blob, "exported_atlas.txt");
+  };
+
+  const onExportKer = () => {
+    if (!header) return;
+    const updatedGlyphs = calculateNewNXNY(canvasRef.current, glyphs);
+    const kerningPairs = generateKerningPairs(updatedGlyphs, kerning);
+    exportKerningKerFile(kerningPairs);
+  };
+
+  const onExportKerTxt = () => {
+    if (!header) return;
+    const updatedGlyphs = calculateNewNXNY(canvasRef.current, glyphs);
+    const kerningPairs = generateKerningPairs(updatedGlyphs, kerning);
+    exportKerningTxtFile(kerningPairs);
   };
 
   const verticalAlignButtons: { val: TextAlignY; icon: React.ElementType }[] = [
@@ -198,30 +193,30 @@ export function Toolbar({
       <div className="flex flex-wrap gap-4 items-start justify-between bg-muted p-4 rounded-xl shadow">
         <div className="flex flex-row gap-6">
           <div className="flex flex-col gap-2">
-            <Label>Load .dat or extracted .txt</Label>
+            <Label>Atlas</Label>
             <Input
               className="cursor-pointer"
               type="file"
               accept=".txt,.dat"
-              onChange={onFileUpload}
+              onChange={onAtlasUpload}
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label>Load font file (otf or ttf)</Label>
+            <Label>Kerning</Label>
+            <Input
+              className="cursor-pointer"
+              type="file"
+              accept=".txt,.ker"
+              onChange={onKerningUpload}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label>Custom Font</Label>
             <Input
               className="cursor-pointer"
               type="file"
               accept=".ttf,.otf"
               onChange={onFontUpload}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label>Overlay</Label>
-            <Input
-              className="cursor-pointer"
-              type="file"
-              accept="image/*"
-              onChange={handleOverlayUpload}
             />
           </div>
         </div>
@@ -263,34 +258,28 @@ export function Toolbar({
             <Label className="text-sm">Alignment</Label>
             <div className="flex gap-2">
               {horizontalAlignButtons.map(({ val, icon: Icon }) => (
-                <Button
+                <Toggle
                   key={val}
                   disabled={glyphs.length === 0 || !header}
-                  variant="outline"
-                  className={clsx(
-                    "p-2 cursor-pointer",
-                    alignX === val && "bg-primary text-white"
-                  )}
+                  variant={alignX === val ? "outline" : "default"}
+                  className={clsx("p-2 cursor-pointer")}
                   onClick={() => setAlignX(val)}
                 >
                   <Icon size={16} />
-                </Button>
+                </Toggle>
               ))}
             </div>
             <div className="flex gap-2">
               {verticalAlignButtons.map(({ val, icon: Icon }) => (
-                <Button
+                <Toggle
                   key={val}
                   disabled={glyphs.length === 0 || !header}
-                  variant="outline"
-                  className={clsx(
-                    "p-2 cursor-pointer",
-                    alignY === val && "bg-primary text-white"
-                  )}
+                  variant={alignY === val ? "outline" : "default"}
+                  className={clsx("p-2 cursor-pointer")}
                   onClick={() => setAlignY(val)}
                 >
                   <Icon size={16} />
-                </Button>
+                </Toggle>
               ))}
             </div>
           </div>
@@ -303,7 +292,7 @@ export function Toolbar({
                   <Input
                     type="number"
                     disabled={glyphs.length === 0 || !header}
-                    className="w-20 "
+                    className="w-15"
                     placeholder={side}
                     value={padding[side as keyof typeof padding]}
                     onChange={(e) =>
@@ -394,36 +383,56 @@ export function Toolbar({
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label className="text-sm">Show Overlay</Label>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="overlay-toggle"
-                checked={showOverlay}
-                onCheckedChange={setShowOverlay}
-                disabled={!overlayImage}
+            <Label className="text-sm">Referece Overlay</Label>
+            <div className="flex flex-col gap-2">
+              <Input
+                className="cursor-pointer"
+                type="file"
+                accept="image/*"
+                onChange={handleOverlayUpload}
               />
-              <Label htmlFor="overlay-toggle" className="text-sm">
-                {overlayImage
-                  ? showOverlay
-                    ? "Visible"
-                    : "Hidden"
-                  : "Upload image first"}
-              </Label>
+            </div>
+            <div className="flex">
+              <div className="flex flex-colitems-center gap-2 mt-1">
+                <Switch
+                  id="overlay-toggle"
+                  checked={showOverlay}
+                  onCheckedChange={setShowOverlay}
+                  disabled={!overlayImage}
+                  className="cursor-pointer"
+                />
+                <Label
+                  htmlFor="overlay-toggle"
+                  className="text-sm cursor-pointer"
+                >
+                  {overlayImage
+                    ? showOverlay
+                      ? "Show"
+                      : "Hide"
+                    : "Upload image first"}
+                </Label>
+              </div>
             </div>
           </div>
         </div>
         <div className="flex flex-col gap-2">
           <Label className="text-sm flex justify-end">Actions</Label>
-          <div className="flex flex-col gap-2 ">
+          <div className="flex flex-col gap-2 items-end">
             <Button
               variant="destructive"
+              disabled={glyphs.length === 0 && !header && kerning.length === 0}
               className="cursor-pointer"
               onClick={() => {
-                localStorage.clear();
-                onReset();
-                window.location.reload();
+                setResetLoading(true);
+                setTimeout(() => {
+                  clearEditorStorage();
+                  onReset();
+                  router.refresh();
+                  setResetLoading(false);
+                }, 2000);
               }}
             >
+              {resetLoading && <Loader2 className="animate-spin" />}
               Reset All
             </Button>
 
@@ -435,35 +444,64 @@ export function Toolbar({
                 <Button className="cursor-pointer">Download</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
+                <DropdownMenuLabel>Atlas files</DropdownMenuLabel>
                 <DropdownMenuItem
-                  onClick={() =>
+                  className="cursor-pointer hover:bg-neutral-800"
+                  onClick={() => {
+                    setExportName("exported_atlas.dat");
                     exportProgress(setProgress, setOpenDialog, async () => {
                       onExportDat();
-                    })
-                  }
+                    });
+                  }}
                 >
                   <Download size={16} />
-                  Download .dat
+                  Download as .dat
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() =>
+                  className="cursor-pointer hover:bg-neutral-800"
+                  onClick={() => {
+                    setExportName("exported_atlas.txt");
                     exportProgress(setProgress, setOpenDialog, async () => {
                       onExportTtx();
-                    })
-                  }
+                    });
+                  }}
                 >
                   <Download size={16} />
-                  Download .txt
+                  Download as .txt
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Atlas pattern</DropdownMenuLabel>
                 <DropdownMenuItem
-                  onClick={() =>
+                  className="cursor-pointer hover:bg-neutral-800"
+                  onClick={() => {
+                    setExportName("exported_atlas.png");
                     exportProgress(setProgress, setOpenDialog, async () => {
                       exportAtlas();
-                    })
-                  }
+                    });
+                  }}
                 >
                   <Download size={16} />
-                  Download atlas
+                  Download as .png
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Kening files</DropdownMenuLabel>
+                <DropdownMenuItem
+                  className="cursor-pointer hover:bg-neutral-800"
+                  onClick={() => {
+                    setExportName("exported_kerning.ker");
+                    exportProgress(setProgress, setOpenDialog, onExportKer);
+                  }}
+                >
+                  Download as .ker
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="cursor-pointer hover:bg-neutral-800"
+                  onClick={() => {
+                    setExportName("exported_kerning.txt");
+                    exportProgress(setProgress, setOpenDialog, onExportKerTxt);
+                  }}
+                >
+                  Download as .txt
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -484,7 +522,10 @@ export function Toolbar({
           onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogHeader>
-            <DialogTitle>Exporting file...</DialogTitle>
+            <DialogTitle>
+              Generating <span className=" text-gray-300">{exportName}</span>{" "}
+              file...
+            </DialogTitle>
           </DialogHeader>
           <Progress value={progress} className="mt-4" />
         </DialogContent>

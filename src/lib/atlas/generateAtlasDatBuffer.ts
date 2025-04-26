@@ -1,6 +1,6 @@
 import type { Glyph, FontHeader } from "@/types/typings";
 
-export function generateDatBuffer(
+export function generateAtlasDatBuffer(
   header: FontHeader,
   glyphs: Glyph[]
 ): ArrayBuffer {
@@ -12,7 +12,6 @@ export function generateDatBuffer(
   const view = new DataView(buffer);
   const encoder = new TextEncoder();
 
-  // Write header
   view.setUint32(0, header.unk1, LE);
   view.setUint32(4, glyphCount, LE);
   view.setUint32(8, header.width, LE);

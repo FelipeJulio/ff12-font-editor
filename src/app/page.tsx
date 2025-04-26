@@ -1,14 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Toolbar } from "@/components/Toolbar";
-import { toast } from "sonner";
-import { GlyphCanvas } from "@/components/GlyphCanvas";
-import { parseFontFile } from "@/lib/parseFontFile";
-import { exportCanvasAsPng } from "@/lib/useCanvasExport";
-import { loadFromLocalStorage, saveToLocalStorage } from "@/lib/useBackup";
 
-import { Glyph } from "@/types/typings";
+import { Glyph, KerningPair } from "@/types/typings";
 import {
   FontWeightOption,
   TextAlignX,
@@ -17,8 +11,21 @@ import {
   FontHeader,
 } from "@/types/typings";
 
+import { Toolbar } from "@/components/Toolbar";
+import { toast } from "sonner";
+import { GlyphCanvas } from "@/components/GlyphCanvas";
+import { parseAtlas } from "@/lib/atlas/parseAtlas";
+import { parseKerningFile } from "@/lib/kerning/paserKerning";
+import { exportCanvasAsPng } from "@/components/hooks/useCanvasExport";
+import {
+  loadFromLocalStorage,
+  saveToLocalStorage,
+} from "@/components/hooks/useBackup";
+
 export default function Home() {
   const [glyphs, setGlyphs] = useState<Glyph[]>([]);
+  const [kerning, setKerning] = useState<KerningPair[]>([]);
+  const [isKerningLoaded, setIsKerningLoaded] = useState(false);
   const [fontSize, setFontSize] = useState("34");
   const [fontColor, setFontColor] = useState("#ffffff");
   const [lineHeight, setLineHeight] = useState(1);
@@ -40,16 +47,20 @@ export default function Home() {
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const { glyphs, header } = loadFromLocalStorage();
-    if (glyphs.length > 0) setGlyphs(glyphs);
+    const { glyphs, header, kerning } = loadFromLocalStorage();
+    if (glyphs.length) setGlyphs(glyphs);
     if (header) setHeader(header);
+    if (kerning.length) {
+      setKerning(kerning);
+      setIsKerningLoaded(true);
+    }
   }, []);
 
   useEffect(() => {
-    saveToLocalStorage(glyphs, header);
-  }, [glyphs, header]);
+    saveToLocalStorage(glyphs, header, kerning);
+  }, [glyphs, header, kerning]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAtlasUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -60,12 +71,34 @@ export default function Home() {
     }
 
     try {
-      const parsed = await parseFontFile(file);
+      const parsed = await parseAtlas(file);
       setGlyphs(parsed.glyphs);
       setHeader(parsed.header);
     } catch (err) {
       console.error("Invalid file content", err);
       toast.error("Invalid file format. Could not parse font data.");
+    }
+  };
+
+  const handleKerningUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!/\.(ker|txt)$/i.test(file.name)) {
+      toast.error("Unsupported kerning file. Use .ker or .txt");
+      return;
+    }
+
+    try {
+      const parsed = await parseKerningFile(file);
+      setKerning(parsed);
+      setIsKerningLoaded(true);
+      toast.success("Kerning loaded successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to parse kerning file");
     }
   };
 
@@ -100,13 +133,16 @@ export default function Home() {
 
   const handleReset = () => {
     setGlyphs([]);
-    setFontSize("16");
+    setKerning([]);
+    setHeader(null);
+    setIsKerningLoaded(false);
+    setFontSize("34");
     setFontWeight("400");
     setFontStyle("Normal");
     setFontColor("#ffffff");
-    setAlignX("left");
-    setAlignY("top");
-    setLineHeight(1.2);
+    setAlignX("center");
+    setAlignY("center");
+    setLineHeight(1);
     setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
   };
 
@@ -120,11 +156,13 @@ export default function Home() {
     <div className="h-full flex flex-col overflow-hidden items-center pb-8">
       <Toolbar
         canvasRef={canvasRef}
-        onFileUpload={handleFileUpload}
+        onAtlasUpload={handleAtlasUpload}
+        onKerningUpload={handleKerningUpload}
         onFontUpload={handleFontUpload}
         onBackupUpload={setGlyphs}
         header={header}
         glyphs={glyphs}
+        kerning={kerning}
         fontSize={fontSize}
         setFontSize={setFontSize}
         fontWeight={fontWeight}
@@ -152,7 +190,7 @@ export default function Home() {
         ref={canvasRef}
         glyphs={glyphs}
         fontSize={fontSize}
-        fontFamily={customFont ?? "Inter"}
+        fontFamily={customFont ?? ""}
         fontColor={fontColor}
         fontWeight={fontWeight}
         fontStyle={fontStyle}
@@ -164,6 +202,7 @@ export default function Home() {
         onCharChange={handleCharChange}
         overlayImage={overlayImage}
         showOverlay={showOverlay}
+        isKerningLoaded={isKerningLoaded}
       />
     </div>
   );

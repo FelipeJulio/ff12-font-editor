@@ -81,10 +81,11 @@ export default function AboutPage() {
         >
           ffgriever
         </a>
-        , the original author of the <code>ff12-fndat.exe</code> decompiler. His
-        work laid the foundation for this project — without that tool, this
-        editor wouldn’t exist. Full credit is due to him for reverse engineering
-        the original data structure and enabling all further exploration.
+        , for creating the amazing tools and script to extract font-dat and
+        font-ker which I used as a basis for this toll. His work laid the
+        foundation for this project — without that tools, this editor wouldn’t
+        exist. Full credit is due to him for reverse engineering the original
+        data structure and enabling all further exploration.
       </p>
     </div>
   );

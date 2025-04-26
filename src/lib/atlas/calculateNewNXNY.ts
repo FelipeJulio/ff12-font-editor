@@ -36,8 +36,9 @@ export function calculateNewNXNY(
 
     return {
       ...glyph,
-      nX: Math.round(glyph.nX + deltaX),
+      nX: Math.round(span.offsetWidth + deltaX),
       nY: Math.round(glyph.nY + deltaY),
+      unicode16leChar: glyph.unicode16leChar ?? glyph.u16 ?? null,
     };
   });
 }

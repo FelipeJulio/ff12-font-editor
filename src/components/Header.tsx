@@ -32,7 +32,7 @@ export function Header({
           href="/docs"
           className="text-sm font-medium underline underline-offset-4 hover:text-primary transition-colors"
         >
-          Documentation
+          Docs
         </Link>
         <Link
           href="/about"

@@ -2,12 +2,21 @@ import html2canvas from "html2canvas-pro";
 
 export function exportCanvasAsPng(
   ref: HTMLDivElement | null,
-  filename = "glyphs.png"
+  filename = "exported_atlas.png"
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (!ref) return reject();
+    if (!ref) return reject(new Error("Reference to canvas is null"));
 
     const clone = ref.cloneNode(true) as HTMLElement;
+    clone.classList.add("clean-glyphys");
+
+    clone.style.position = "absolute";
+    clone.style.top = "0";
+    clone.style.left = "0";
+    clone.style.zIndex = "-100";
+    clone.style.pointerEvents = "none";
+    clone.style.transform = "none";
+
     document.body.appendChild(clone);
 
     html2canvas(clone, {
@@ -28,7 +37,7 @@ export function exportCanvasAsPng(
       })
       .finally(() => {
         document.body.removeChild(clone);
-        ref.classList.remove("clean-glyphys");
+        clone.classList.remove("clean-glyphys");
       });
   });
 }

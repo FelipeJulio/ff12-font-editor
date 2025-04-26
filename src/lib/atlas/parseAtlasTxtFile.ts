@@ -1,6 +1,6 @@
 import type { Glyph, FontHeader } from "@/types/typings";
 
-export async function parseTxtFile(
+export async function parseAtlasTxtFile(
   file: File
 ): Promise<{ header: FontHeader; glyphs: Glyph[] }> {
   const text = await file.text();
@@ -45,7 +45,8 @@ export async function parseTxtFile(
 
     const nX = parseInt(match[7], 10) || 0;
     const nY = parseInt(match[8], 10) || 0;
-    const u16 = parseInt(match[9], 16);
+    const rawU16 = parseInt(match[9], 16);
+    const u16 = rawU16 === 0xffffffff ? null : rawU16;
 
     return {
       num: parseInt(match[1], 16),

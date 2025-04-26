@@ -1,6 +1,6 @@
 import type { Glyph, FontHeader } from "@/types/typings";
 
-export async function parseDatFile(
+export async function parseAtlasDatFile(
   file: File
 ): Promise<{ header: FontHeader; glyphs: Glyph[] }> {
   const buffer = await file.arrayBuffer();
@@ -58,7 +58,8 @@ export async function parseDatFile(
     offset += 4;
     const nextY = view.getUint32(offset, LE);
     offset += 4;
-    const unicode16leChar = view.getUint32(offset, LE);
+    const rawUnicode = view.getUint32(offset, LE);
+    const unicode16leChar = rawUnicode === 0xffffffff ? null : rawUnicode;
     offset += 4;
 
     glyphs.push({

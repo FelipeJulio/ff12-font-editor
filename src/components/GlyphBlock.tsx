@@ -1,29 +1,10 @@
 "use client";
 
 import { useState } from "react";
+
+import { GlyphBlockProps } from "@/types/typings";
 import clsx from "clsx";
-
 import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Undo2 } from "lucide-react";
-
-interface GlyphBlockProps {
-  chara: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  fontSize: string;
-  fontFamily: string;
-  fontColor: string;
-  fontWeight: string;
-  fontStyle: string;
-  lineHeight: number;
-  alignX: string;
-  alignY: string;
-  padding: { top: number; right: number; bottom: number; left: number };
-  nX: number;
-  nY: number;
-  onCharChange?: (newChar: string) => void;
-}
 
 export function GlyphBlock({
   chara,
@@ -117,7 +98,7 @@ export function GlyphBlock({
             onKeyDown={(e) => {
               if (e.key === "Enter") confirmChange();
             }}
-            className="absolute w-full h-full outline-red-500  border-2"
+            className="absolute w-full h-full outline-red-500  border- text-center"
             style={{
               transform: `translate(${offsetX * -1}px, ${offsetY * -1}px)`,
             }}
