@@ -83,6 +83,12 @@ export function Header({
       </Link>
       <div className="flex items-center gap-4">
         <Link
+          href="/fonts"
+          className="text-sm font-medium underline underline-offset-4 hover:text-primary transition-colors"
+        >
+          Fonts
+        </Link>
+        <Link
           href="/docs"
           className="text-sm font-medium underline underline-offset-4 hover:text-primary transition-colors"
         >

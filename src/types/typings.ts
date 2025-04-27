@@ -11,6 +11,12 @@ export type FontWeightOption =
 export type FontStyleOption = "Normal" | "Italic" | "Oblique";
 export type TextAlignX = "left" | "center" | "right";
 export type TextAlignY = "top" | "center" | "bottom";
+export interface TextShadow {
+  offsetX: number;
+  offsetY: number;
+  blur: number;
+  color: string;
+}
 export interface Glyph {
   num: number;
   chara: string;
@@ -48,7 +54,7 @@ export interface ToolbarProps {
   onAtlasUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onKerningUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onFontUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onBackupUpload: (glyphs: Glyph[]) => void;
+  onBackupUpload: (data: BackupData) => void;
   header: FontHeader | null;
   glyphs: Glyph[];
   kerning: KerningPair[];
@@ -71,6 +77,12 @@ export interface ToolbarProps {
     bottom: number;
     left: number;
   }) => void;
+  textStrokeSize: number;
+  setTextStrokeSize: (val: number) => void;
+  textStrokeColor: string;
+  setTextStrokeColor: (val: string) => void;
+  textShadows: TextShadow[];
+  setTextShadows: (shadows: TextShadow[]) => void;
   onExportPng: () => void;
   lineHeight: number;
   setLineHeight: (val: number) => void;
@@ -91,6 +103,9 @@ export interface CanvasProps {
   alignX: string;
   alignY: string;
   padding: { top: number; right: number; bottom: number; left: number };
+  textStrokeSize: number;
+  textStrokeColor: string;
+  textShadows: TextShadow[];
   onMove: (index: number, dx: number, dy: number) => void;
   overlayImage?: string;
   showOverlay: boolean;
@@ -112,7 +127,35 @@ export interface GlyphBlockProps {
   alignX: string;
   alignY: string;
   padding: { top: number; right: number; bottom: number; left: number };
+  textStrokeSize: number;
+  textStrokeColor: string;
+  textShadows: TextShadow[];
   nX: number;
   nY: number;
   onCharChange?: (newChar: string) => void;
+}
+export interface EditorSettings {
+  fontSize: string;
+  fontColor: string;
+  fontWeight: FontWeightOption;
+  fontStyle: FontStyleOption;
+  alignX: TextAlignX;
+  alignY: TextAlignY;
+  lineHeight: number;
+  padding: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  };
+  textStrokeSize: number;
+  textStrokeColor: string;
+  textShadows: TextShadow[];
+  showOverlay: boolean;
+}
+export interface BackupData {
+  glyphs: Glyph[];
+  header: FontHeader | null;
+  kerning: KerningPair[];
+  settings: EditorSettings;
 }

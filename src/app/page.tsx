@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Glyph, KerningPair } from "@/types/typings";
+import { Glyph, KerningPair, TextShadow } from "@/types/typings";
 import {
   FontWeightOption,
   TextAlignX,
@@ -39,6 +39,10 @@ export default function Home() {
     bottom: 0,
     left: 0,
   });
+  const [textStrokeSize, setTextStrokeSize] = useState(0);
+  const [textStrokeColor, setTextStrokeColor] = useState("#ffffff");
+  const [textShadows, setTextShadows] = useState<TextShadow[]>([]);
+
   const [customFont, setCustomFont] = useState<string | null>(null);
   const [overlayImage, setOverlayImage] = useState<string | undefined>();
   const [showOverlay, setShowOverlay] = useState(false);
@@ -47,18 +51,63 @@ export default function Home() {
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const { glyphs, header, kerning } = loadFromLocalStorage();
+    const { glyphs, header, kerning, settings } = loadFromLocalStorage();
     if (glyphs.length) setGlyphs(glyphs);
     if (header) setHeader(header);
     if (kerning.length) {
       setKerning(kerning);
       setIsKerningLoaded(true);
     }
+    if (settings) {
+      setFontSize(settings.fontSize);
+      setFontColor(settings.fontColor);
+      setFontWeight(settings.fontWeight);
+      setFontStyle(settings.fontStyle);
+      setAlignX(settings.alignX);
+      setAlignY(settings.alignY);
+      setLineHeight(settings.lineHeight);
+      setPadding(settings.padding);
+      setTextStrokeSize(settings.textStrokeSize);
+      setTextStrokeColor(settings.textStrokeColor);
+      setTextShadows(settings.textShadows);
+      setShowOverlay(settings.showOverlay);
+    }
   }, []);
 
   useEffect(() => {
-    saveToLocalStorage(glyphs, header, kerning);
-  }, [glyphs, header, kerning]);
+    const settings = {
+      fontSize,
+      fontColor,
+      fontWeight,
+      fontStyle,
+      alignX,
+      alignY,
+      lineHeight,
+      padding,
+      textStrokeSize,
+      textStrokeColor,
+      textShadows,
+      showOverlay,
+    };
+
+    saveToLocalStorage(glyphs, header, kerning, settings);
+  }, [
+    glyphs,
+    header,
+    kerning,
+    fontSize,
+    fontColor,
+    fontWeight,
+    fontStyle,
+    alignX,
+    alignY,
+    lineHeight,
+    padding,
+    textStrokeSize,
+    textStrokeColor,
+    textShadows,
+    showOverlay,
+  ]);
 
   const handleAtlasUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -74,6 +123,7 @@ export default function Home() {
       const parsed = await parseAtlas(file);
       setGlyphs(parsed.glyphs);
       setHeader(parsed.header);
+      toast.success("Atlas loaded successfully!");
     } catch (err) {
       console.error("Invalid file content", err);
       toast.error("Invalid file format. Could not parse font data.");
@@ -95,7 +145,7 @@ export default function Home() {
       const parsed = await parseKerningFile(file);
       setKerning(parsed);
       setIsKerningLoaded(true);
-      toast.success("Kerning loaded successfully");
+      toast.success("Kerning loaded successfully!");
     } catch (err) {
       console.error(err);
       toast.error("Failed to parse kerning file");
@@ -117,10 +167,17 @@ export default function Home() {
     const reader = new FileReader();
     reader.onload = () => {
       const font = new FontFace(fontName, reader.result as ArrayBuffer);
-      font.load().then((loaded) => {
-        document.fonts.add(loaded);
-        setCustomFont(fontName);
-      });
+      font
+        .load()
+        .then((loaded) => {
+          document.fonts.add(loaded);
+          setCustomFont(fontName);
+          toast.success("Custom font loaded successfully!");
+        })
+        .catch((err) => {
+          console.error(err);
+          toast.error("Failed to load custom font");
+        });
     };
     reader.readAsArrayBuffer(file);
   };
@@ -144,6 +201,9 @@ export default function Home() {
     setAlignY("center");
     setLineHeight(1);
     setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
+    setTextStrokeSize(0);
+    setTextStrokeColor("#ffffff");
+    setTextShadows([]);
   };
 
   const handleCharChange = (index: number, newChar: string) => {
@@ -159,7 +219,25 @@ export default function Home() {
         onAtlasUpload={handleAtlasUpload}
         onKerningUpload={handleKerningUpload}
         onFontUpload={handleFontUpload}
-        onBackupUpload={setGlyphs}
+        onBackupUpload={(data) => {
+          setGlyphs(data.glyphs);
+          setHeader(data.header);
+          setKerning(data.kerning);
+          if (data.settings) {
+            setFontSize(data.settings.fontSize);
+            setFontColor(data.settings.fontColor);
+            setFontWeight(data.settings.fontWeight);
+            setFontStyle(data.settings.fontStyle);
+            setAlignX(data.settings.alignX);
+            setAlignY(data.settings.alignY);
+            setLineHeight(data.settings.lineHeight);
+            setPadding(data.settings.padding);
+            setTextStrokeSize(data.settings.textStrokeSize);
+            setTextStrokeColor(data.settings.textStrokeColor);
+            setTextShadows(data.settings.textShadows);
+            setShowOverlay(data.settings.showOverlay);
+          }
+        }}
         header={header}
         glyphs={glyphs}
         kerning={kerning}
@@ -177,6 +255,12 @@ export default function Home() {
         setAlignY={setAlignY}
         padding={padding}
         setPadding={setPadding}
+        textStrokeSize={textStrokeSize}
+        setTextStrokeSize={setTextStrokeSize}
+        textStrokeColor={textStrokeColor}
+        setTextStrokeColor={setTextStrokeColor}
+        textShadows={textShadows}
+        setTextShadows={setTextShadows}
         onExportPng={() => exportCanvasAsPng(canvasRef.current)}
         lineHeight={lineHeight}
         setLineHeight={setLineHeight}
@@ -198,6 +282,9 @@ export default function Home() {
         alignX={alignX}
         alignY={alignY}
         padding={padding}
+        textStrokeSize={textStrokeSize}
+        textStrokeColor={textStrokeColor}
+        textShadows={textShadows}
         onMove={handleMove}
         onCharChange={handleCharChange}
         overlayImage={overlayImage}

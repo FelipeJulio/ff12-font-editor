@@ -10,7 +10,6 @@ import {
 import { useRouter } from "next/navigation";
 
 import {
-  Upload,
   Download,
   AlignHorizontalJustifyEnd,
   AlignHorizontalJustifyStart,
@@ -19,6 +18,11 @@ import {
   AlignVerticalJustifyStart,
   AlignVerticalJustifyCenter,
   Loader2,
+  ChevronDown,
+  Trash,
+  RotateCcw,
+  Plus,
+  Settings,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -55,6 +59,7 @@ import {
   clearEditorStorage,
   exportGlyphBackup,
   importGlyphBackup,
+  saveToLocalStorage,
 } from "@/components/hooks/useBackup";
 import { calculateNewNXNY } from "@/lib/atlas/calculateNewNXNY";
 import { generateAtlasDatBuffer } from "@/lib/atlas/generateAtlasDatBuffer";
@@ -69,6 +74,10 @@ import { generateKerningPairs } from "@/lib/kerning/generateKerningPairs";
 import { exportKerningKerFile } from "@/lib/kerning/exportKerningKerFile";
 import { exportKerningTxtFile } from "@/lib/kerning/exportKerningTxtFile";
 import { Toggle } from "./ui/toggle";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Separator } from "./ui/separator";
+import { capitalizeFirstLetter } from "@/lib/utils/capitalizeFirstLetter";
+import { BackupUploader } from "./BackupUploader";
 
 export function Toolbar({
   canvasRef,
@@ -92,6 +101,12 @@ export function Toolbar({
   setAlignY,
   padding,
   setPadding,
+  setTextShadows,
+  setTextStrokeColor,
+  setTextStrokeSize,
+  textShadows,
+  textStrokeColor,
+  textStrokeSize,
   onExportPng,
   lineHeight,
   setLineHeight,
@@ -110,22 +125,104 @@ export function Toolbar({
   const [exportName, setExportName] = useState("");
   const updatedGlyphs = calculateNewNXNY(canvasRef.current, glyphs);
 
-  const handleBackupImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleBackupImport = async () => {
+    try {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".json";
+      input.style.display = "none";
 
-    const isJson = /\.json$/i.test(file.name);
-    if (!isJson) {
-      toast.error("Invalid file. Please upload a .json backup file.");
-      return;
+      const removeInput = () => {
+        if (input.parentNode) {
+          document.body.removeChild(input);
+        }
+      };
+
+      document.body.appendChild(input);
+
+      input.addEventListener("change", async (e) => {
+        const file = (e.target as HTMLInputElement)?.files?.[0];
+        if (!file) {
+          toast.error("No file selected.");
+          removeInput();
+          return;
+        }
+
+        if (!file.name.endsWith(".json")) {
+          toast.error("Invalid file. Please select a .json backup file.");
+          removeInput();
+          return;
+        }
+
+        try {
+          const data = await importGlyphBackup(file);
+
+          if (!data.header) {
+            toast.error("Invalid backup: Missing Atlas header.");
+            removeInput();
+            return;
+          }
+
+          if (!header) {
+            toast.error("You need to load an Atlas first.");
+            removeInput();
+            return;
+          }
+
+          const isSameHeader =
+            header.width === data.header.width &&
+            header.height === data.header.height &&
+            header.glyphCount === data.header.glyphCount;
+
+          if (!isSameHeader) {
+            toast.error(
+              "The backup file does not match the currently loaded Atlas header."
+            );
+            removeInput();
+            return;
+          }
+
+          onBackupUpload(data);
+          saveToLocalStorage(
+            data.glyphs,
+            data.header,
+            data.kerning,
+            data.settings
+          );
+
+          toast.success("Backup successfully loaded!");
+        } catch (error) {
+          console.error(error);
+          toast.error("Failed to load the backup file.");
+        } finally {
+          removeInput();
+        }
+      });
+
+      input.click();
+    } catch (err) {
+      console.error("Unexpected error during backup upload", err);
+      toast.error("Unexpected error. Please try again.");
     }
-
-    const glyphs = await importGlyphBackup(file);
-    onBackupUpload(glyphs);
   };
 
   const handleExportBackup = () => {
-    exportProgress(setProgress, setOpenDialog, () => exportGlyphBackup(glyphs));
+    exportProgress(setProgress, setOpenDialog, () =>
+      exportGlyphBackup(glyphs, header, kerning, {
+        fontSize,
+        fontColor,
+        fontWeight,
+        fontStyle,
+        alignX,
+        alignY,
+        lineHeight,
+        padding,
+        textStrokeSize,
+        textStrokeColor,
+        textShadows,
+        showOverlay,
+      })
+    );
   };
 
   const handleOverlayUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,6 +237,7 @@ export function Toolbar({
 
     const url = URL.createObjectURL(file);
     onOverlayUpload(url);
+    toast.success("Overlay image loaded successfully!");
   };
 
   const onExportDat = () => {
@@ -191,7 +289,7 @@ export function Toolbar({
   return (
     <div className="w-full space-y-4 mx-auto">
       <div className="flex flex-wrap gap-4 items-start justify-between bg-muted p-4 rounded-xl shadow">
-        <div className="flex flex-row gap-6">
+        <div className="flex flex-row gap-4">
           <div className="flex flex-col gap-2">
             <Label>Atlas</Label>
             <Input
@@ -210,181 +308,10 @@ export function Toolbar({
               onChange={onKerningUpload}
             />
           </div>
+
           <div className="flex flex-col gap-2">
-            <Label>Custom Font</Label>
-            <Input
-              className="cursor-pointer"
-              type="file"
-              accept=".ttf,.otf"
-              onChange={onFontUpload}
-            />
-          </div>
-        </div>
-        <div className="flex flex-row gap-6">
-          <div className="flex flex-col gap-2">
-            <Label className="flex justify-end">Backup</Label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button className="cursor-pointer">Backup Settings</Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem asChild>
-                  <label className="w-full flex items-center gap-2 cursor-pointer">
-                    <Upload size={16} />
-                    Upload backup file
-                    <Input
-                      type="file"
-                      accept=".json"
-                      onChange={handleBackupImport}
-                      className="hidden"
-                    />
-                  </label>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleExportBackup}
-                  disabled={glyphs.length === 0 || !header}
-                >
-                  <Download size={16} />
-                  Download backup file
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-6 items-start justify-between bg-muted p-4 rounded-xl shadow">
-        <div className="flex flex-row gap-6">
-          <div className="flex flex-col gap-2">
-            <Label className="text-sm">Alignment</Label>
-            <div className="flex gap-2">
-              {horizontalAlignButtons.map(({ val, icon: Icon }) => (
-                <Toggle
-                  key={val}
-                  disabled={glyphs.length === 0 || !header}
-                  variant={alignX === val ? "outline" : "default"}
-                  className={clsx("p-2 cursor-pointer")}
-                  onClick={() => setAlignX(val)}
-                >
-                  <Icon size={16} />
-                </Toggle>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              {verticalAlignButtons.map(({ val, icon: Icon }) => (
-                <Toggle
-                  key={val}
-                  disabled={glyphs.length === 0 || !header}
-                  variant={alignY === val ? "outline" : "default"}
-                  className={clsx("p-2 cursor-pointer")}
-                  onClick={() => setAlignY(val)}
-                >
-                  <Icon size={16} />
-                </Toggle>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label className="text-sm">Padding</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {["top", "right", "bottom", "left"].map((side) => (
-                <div className="flex flex-row items-center gap-2" key={side}>
-                  {side.trim().charAt(0).toUpperCase()}
-                  <Input
-                    type="number"
-                    disabled={glyphs.length === 0 || !header}
-                    className="w-15"
-                    placeholder={side}
-                    value={padding[side as keyof typeof padding]}
-                    onChange={(e) =>
-                      setPadding({
-                        ...padding,
-                        [side]: parseInt(e.target.value) || 0,
-                      })
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label className="text-sm">Font</Label>
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  disabled={glyphs.length === 0 || !header}
-                  className="w-20"
-                  value={fontSize}
-                  onChange={(e) => setFontSize(e.target.value)}
-                  placeholder="Size"
-                />
-                <Select
-                  value={fontWeight}
-                  onValueChange={setFontWeight}
-                  disabled={glyphs.length === 0 || !header}
-                >
-                  <SelectTrigger className="w-24">
-                    <SelectValue placeholder="Weight" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {[...Array(9)].map((_, i) => {
-                        const val = String((i + 1) * 100);
-                        return (
-                          <SelectItem key={val} value={val}>
-                            {val}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-2">
-                <Select
-                  value={fontStyle}
-                  onValueChange={setFontStyle}
-                  disabled={glyphs.length === 0 || !header}
-                >
-                  <SelectTrigger className="w-24">
-                    <SelectValue placeholder="Style" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {(
-                        ["Normal", "Italic", "Oblique"] as FontStyleOption[]
-                      ).map((val) => (
-                        <SelectItem key={val} value={val}>
-                          {val}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                <Input
-                  type="number"
-                  className="w-20"
-                  step="0.1"
-                  min="0.1"
-                  value={lineHeight}
-                  onChange={(e) => setLineHeight(parseFloat(e.target.value))}
-                  placeholder="Line height"
-                />
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label className="text-sm">Color</Label>
-            <ColorPicker
-              value={fontColor}
-              glyphs={glyphs}
-              header={header}
-              onChange={setFontColor}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label className="text-sm">Referece Overlay</Label>
-            <div className="flex flex-col gap-2">
+            <Label>Referece Overlay</Label>
+            <div className="flex flex-row gap-2">
               <Input
                 className="cursor-pointer"
                 type="file"
@@ -392,56 +319,446 @@ export function Toolbar({
                 onChange={handleOverlayUpload}
               />
             </div>
-            <div className="flex">
-              <div className="flex flex-colitems-center gap-2 mt-1">
-                <Switch
-                  id="overlay-toggle"
-                  checked={showOverlay}
-                  onCheckedChange={setShowOverlay}
-                  disabled={!overlayImage}
-                  className="cursor-pointer"
-                />
-                <Label
-                  htmlFor="overlay-toggle"
-                  className="text-sm cursor-pointer"
-                >
-                  {overlayImage
-                    ? showOverlay
-                      ? "Show"
-                      : "Hide"
-                    : "Upload image first"}
-                </Label>
+          </div>
+
+          {overlayImage && (
+            <>
+              <div className="flex flex-col gap-2">
+                <Label>Show</Label>
+                <div className="flex justify-center items-center grow">
+                  <Switch
+                    id="overlay-toggle"
+                    checked={showOverlay}
+                    onCheckedChange={setShowOverlay}
+                    disabled={!overlayImage}
+                    className="cursor-pointer"
+                  />
+                </div>
               </div>
+            </>
+          )}
+        </div>
+        <div className="flex flex-row gap-4">
+          <div className="flex flex-col gap-2 items-end">
+            <Label className="flex justify-end">Settings</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="cursor-pointer w-10">
+                  {resetLoading && <Loader2 className="animate-spin" />}
+                  <Settings size={16} />{" "}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <BackupUploader onBackupUpload={handleBackupImport} />
+
+                <DropdownMenuItem
+                  onClick={() => {
+                    setExportName("backup_ff12_text_helper.json");
+                    handleExportBackup();
+                  }}
+                  disabled={glyphs.length === 0 || !header}
+                >
+                  <Download size={16} />
+                  Export backup file
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => {
+                    setResetLoading(true);
+                    setTimeout(() => {
+                      clearEditorStorage();
+                      onReset();
+                      router.refresh();
+                      setResetLoading(false);
+                    }, 2000);
+                  }}
+                  disabled={
+                    glyphs.length === 0 && !header && kerning.length === 0
+                  }
+                >
+                  <RotateCcw size={16} />
+                  Load defaults
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-4 items-start justify-start bg-muted p-4 rounded-xl shadow">
+        <div className="flex flex-col gap-2">
+          <Label>Size and placement</Label>
+          <div className="flex flex-row gap-2">
+            <div className="flex flex-col gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="cursor-pointer">
+                    Alingment
+                    <ChevronDown size={16} />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="flex flex-col gap-4 max-w-60">
+                  <p className="text-sm">Glyph alignment within block</p>
+                  <Separator />
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-row gap-4">
+                      {horizontalAlignButtons.map(({ val, icon: Icon }) => (
+                        <div key={val} className="flex flex-col gap-2 grow">
+                          <Toggle
+                            disabled={glyphs.length === 0 || !header}
+                            variant={alignX === val ? "outline" : "default"}
+                            className={clsx("p-2 cursor-pointer")}
+                            onClick={() => setAlignX(val)}
+                          >
+                            <Icon size={16} />
+                          </Toggle>
+                        </div>
+                      ))}
+                    </div>
+                    <Separator />
+                    <div className="flex flex-row gap-4">
+                      {verticalAlignButtons.map(({ val, icon: Icon }) => (
+                        <div key={val} className="flex flex-col gap-2 grow">
+                          <Toggle
+                            key={val}
+                            disabled={glyphs.length === 0 || !header}
+                            variant={alignY === val ? "outline" : "default"}
+                            className={clsx("p-2 cursor-pointer")}
+                            onClick={() => setAlignY(val)}
+                          >
+                            <Icon size={16} />
+                          </Toggle>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="cursor-pointer">
+                    Spacing
+                    <ChevronDown size={16} />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="flex flex-col gap-4 max-w-60">
+                  <p className="text-sm">
+                    Specific glyph positioning within the block
+                  </p>
+                  <Separator />
+                  <div className="flex flex-col gap-4">
+                    {["top", "right", "bottom", "left"].map((side) => (
+                      <div
+                        className="flex flex-row items-center gap-2"
+                        key={side}
+                      >
+                        <Label className="grow">
+                          {capitalizeFirstLetter(side)}
+                        </Label>
+                        <Input
+                          type="number"
+                          disabled={glyphs.length === 0 || !header}
+                          className="w-30"
+                          placeholder={side}
+                          value={padding[side as keyof typeof padding]}
+                          onChange={(e) =>
+                            setPadding({
+                              ...padding,
+                              [side]: parseInt(e.target.value) || 0,
+                            })
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="cursor-pointer">
+                    Font
+                    <ChevronDown size={16} />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="flex flex-col gap-4 max-w-60">
+                  <p className="text-sm">
+                    General font adjustments applied to the glyph.
+                  </p>
+                  <Separator />
+                  <div className="flex flex-row gap-4">
+                    <Label className="grow">Font Size</Label>
+                    <Input
+                      type="number"
+                      disabled={glyphs.length === 0 || !header}
+                      className="w-24"
+                      value={fontSize}
+                      onChange={(e) => setFontSize(e.target.value)}
+                      placeholder="Size"
+                    />
+                  </div>
+                  <div className="flex flex-row gap-4">
+                    <Label className="grow">Font Style</Label>
+                    <Select
+                      value={fontStyle}
+                      onValueChange={setFontStyle}
+                      disabled={glyphs.length === 0 || !header}
+                    >
+                      <SelectTrigger className="w-24">
+                        <SelectValue placeholder="Style" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {(
+                            ["Normal", "Italic", "Oblique"] as FontStyleOption[]
+                          ).map((val) => (
+                            <SelectItem key={val} value={val}>
+                              {val}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-row gap-4">
+                    <Label className="grow">Font Weight</Label>
+                    <Select
+                      value={fontWeight}
+                      onValueChange={setFontWeight}
+                      disabled={glyphs.length === 0 || !header}
+                    >
+                      <SelectTrigger className="w-24">
+                        <SelectValue placeholder="Weight" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {[...Array(9)].map((_, i) => {
+                            const val = String((i + 1) * 100);
+                            return (
+                              <SelectItem key={val} value={val}>
+                                {val}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-row gap-4">
+                    <Label className="grow">Line Height</Label>
+                    <Input
+                      type="number"
+                      className="w-24"
+                      step="0.1"
+                      min="0.1"
+                      value={lineHeight}
+                      onChange={(e) =>
+                        setLineHeight(parseFloat(e.target.value))
+                      }
+                      placeholder="Line height"
+                    />
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </div>
         <div className="flex flex-col gap-2">
-          <Label className="text-sm flex justify-end">Actions</Label>
+          <Label>Styling and effects</Label>
+          <div className="flex flex-row gap-2">
+            <div className="flex flex-col gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="cursor-pointer">
+                    Color
+                    <ChevronDown size={16} />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="flex flex-col gap-4 max-w-60">
+                  <p className="text-sm">
+                    Color that will be applied to the glyph.
+                  </p>
+                  <Separator />
+                  <div className="flex flex-row gap-4">
+                    <ColorPicker
+                      value={fontColor}
+                      glyphs={glyphs}
+                      header={header}
+                      onChange={setFontColor}
+                    />
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="cursor-pointer">
+                    Stroke
+                    <ChevronDown size={16} />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="flex flex-col gap-4 max-w-60">
+                  <p className="text-sm">Set border and color for glyph.</p>
+                  <Separator />
+                  <div className="flex flex-row gap-4">
+                    <Label className="grow">Stroke width</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={textStrokeSize}
+                      onChange={(e) =>
+                        setTextStrokeSize(parseInt(e.target.value) || 0)
+                      }
+                      className="w-20"
+                      placeholder="Size"
+                    />
+                  </div>
+                  <Separator />
+                  <div className="flex flex-row gap-4">
+                    <ColorPicker
+                      value={textStrokeColor}
+                      glyphs={glyphs}
+                      header={header}
+                      onChange={setTextStrokeColor}
+                    />
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label>Shadows</Label>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap gap-2 max-w-62">
+              {textShadows.map((shadow, index) => (
+                <Popover key={index}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="px-3 py-1 max-w-14 w-full"
+                    >
+                      {index + 1}
+                      <ChevronDown size={16} />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="flex flex-col gap-2 p-4 w-60">
+                    <p className="text-sm">
+                      Sets one or more shadows for the glyph.
+                    </p>
+                    <Separator />
+                    <div className="flex flex-row gap-4">
+                      <Label className="grow">Offset X</Label>
+                      <Input
+                        type="number"
+                        value={shadow.offsetX}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          const updated = [...textShadows];
+                          updated[index].offsetX = value;
+                          setTextShadows(updated);
+                        }}
+                        className="w-20"
+                      />
+                    </div>
+                    <Separator />
+                    <div className="flex flex-row gap-4">
+                      <Label className="grow">Offset Y</Label>
+                      <Input
+                        type="number"
+                        value={shadow.offsetY}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          const updated = [...textShadows];
+                          updated[index].offsetY = value;
+                          setTextShadows(updated);
+                        }}
+                        className="w-20"
+                      />
+                    </div>
+                    <Separator />
+                    <div className="flex flex-row gap-4">
+                      <Label className="grow">Blur</Label>
+                      <Input
+                        type="number"
+                        value={shadow.blur}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          const updated = [...textShadows];
+                          updated[index].blur = value;
+                          setTextShadows(updated);
+                        }}
+                        className="w-20"
+                      />
+                    </div>
+                    <Separator />
+                    <div className="flex flex-row gap-4">
+                      <ColorPicker
+                        value={shadow.color}
+                        glyphs={glyphs}
+                        header={header}
+                        onChange={(color) => {
+                          const updated = [...textShadows];
+                          updated[index].color = color;
+                          setTextShadows(updated);
+                        }}
+                      />
+                    </div>
+                    <Separator />
+                    <Button
+                      variant="destructive"
+                      className="cursor-pointer"
+                      onClick={() => {
+                        const updated = textShadows.filter(
+                          (_, i) => i !== index
+                        );
+                        setTextShadows(updated);
+                      }}
+                    >
+                      <Trash size={16} className="mr-2" />
+                      Remove Shadow
+                    </Button>
+                  </PopoverContent>
+                </Popover>
+              ))}
+              <Button
+                variant="outline"
+                className="cursor-pointer"
+                onClick={() =>
+                  setTextShadows([
+                    ...textShadows,
+                    { offsetX: 0, offsetY: 0, blur: 0, color: "#000000" },
+                  ])
+                }
+              >
+                <Plus size={16} />
+              </Button>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label>Custom Font</Label>
+          <Input
+            className="cursor-pointer"
+            type="file"
+            accept=".ttf,.otf"
+            onChange={onFontUpload}
+          />
+        </div>
+        <div className="flex flex-col gap-2 items-end grow">
+          <Label>Download</Label>
           <div className="flex flex-col gap-2 items-end">
-            <Button
-              variant="destructive"
-              disabled={glyphs.length === 0 && !header && kerning.length === 0}
-              className="cursor-pointer font-bold"
-              onClick={() => {
-                setResetLoading(true);
-                setTimeout(() => {
-                  clearEditorStorage();
-                  onReset();
-                  router.refresh();
-                  setResetLoading(false);
-                }, 2000);
-              }}
-            >
-              {resetLoading && <Loader2 className="animate-spin" />}
-              Reset All
-            </Button>
-
             <DropdownMenu>
               <DropdownMenuTrigger
                 asChild
                 disabled={glyphs.length === 0 || !header}
               >
-                <Button className="cursor-pointer ">Download</Button>
+                <Button className="cursor-pointer">
+                  <Download size={16} />
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuLabel>Atlas files</DropdownMenuLabel>
@@ -484,7 +801,7 @@ export function Toolbar({
                   Download as .png
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel>Kening files</DropdownMenuLabel>
+                <DropdownMenuLabel>Kerning files</DropdownMenuLabel>
                 <DropdownMenuItem
                   className="cursor-pointer hover:bg-neutral-800"
                   onClick={() => {

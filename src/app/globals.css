@@ -5,7 +5,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-noto-sans);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -132,6 +132,48 @@ body::after {
   top: 0;
   background-color: var(--color-background);
   z-index: -1;
+}
+
+.colorPicker {
+  font-family: var(--font-sans) !important;
+  background-color: var(--background) !important;
+  box-shadow: none !important;
+}
+
+.colorPicker input {
+  border-style: var(--tw-border-style) !important;
+  border-width: 1px !important;
+  border-color: var(--input) !important;
+  border-radius: calc(var(--radius) - 2px) !important;
+  transition-property: color, box-shadow !important;
+  transition-timing-function: var(
+    --tw-ease,
+    var(--default-transition-timing-function)
+  ) !important;
+  transition-duration: var(
+    --tw-duration,
+    var(--default-transition-duration)
+  ) !important;
+  box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+    var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow) !important;
+  padding-block: calc(var(--spacing) * 1) !important;
+  padding-inline: calc(var(--spacing) * 3) !important;
+  --tw-outline-style: none !important;
+  outline-style: none !important;
+  height: calc(var(--spacing) * 9) !important;
+  color: var(--foreground) !important;
+}
+
+.colorPicker label {
+  color: var(--foreground) !important;
+}
+
+.colorPicker div svg {
+  margin-top: -12px;
+  padding: 6px;
+  margin-left: 4px;
+  height: calc(var(--spacing) * 9) !important;
+  width: calc(var(--spacing) * 9) !important;
 }
 
 .glyphcanvas,

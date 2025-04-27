@@ -21,6 +21,9 @@ export const GlyphCanvas = forwardRef<HTMLDivElement, CanvasProps>(
       alignX,
       alignY,
       padding,
+      textShadows,
+      textStrokeColor,
+      textStrokeSize,
       overlayImage,
       showOverlay,
       onCharChange,
@@ -122,6 +125,9 @@ export const GlyphCanvas = forwardRef<HTMLDivElement, CanvasProps>(
                     alignX={alignX}
                     alignY={alignY}
                     padding={padding}
+                    textStrokeSize={textStrokeSize}
+                    textStrokeColor={textStrokeColor}
+                    textShadows={textShadows}
                     nX={glyph.nX}
                     nY={glyph.nY}
                     onCharChange={(newChar) => onCharChange?.(index, newChar)}

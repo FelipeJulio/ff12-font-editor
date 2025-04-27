@@ -1,19 +1,10 @@
 import type { Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { AppWrapper } from "@/components/AppWrapper";
 import { metadata } from "@/app/metadata";
+import { defaultFont } from "@/lib/utils/font";
+import clsx from "clsx";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export { metadata };
 
@@ -30,7 +21,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} h-screen flex flex-col justify-center items-center`}
+        className={clsx(
+          defaultFont.variable,
+          "h-screen flex flex-col justify-center items-center"
+        )}
       >
         <AppWrapper>{children}</AppWrapper>
         <Toaster />

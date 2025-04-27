@@ -21,6 +21,9 @@ export function GlyphBlock({
   alignX,
   alignY,
   padding,
+  textShadows,
+  textStrokeColor,
+  textStrokeSize,
   onCharChange,
 }: GlyphBlockProps) {
   const [hovered, setHovered] = useState(false);
@@ -110,6 +113,13 @@ export function GlyphBlock({
               display: "inline-block",
               transform: `translate(${offsetX * -1}px, ${offsetY * -1}px)`,
               cursor: "pointer",
+              WebkitTextStroke: `${textStrokeSize}px ${textStrokeColor}`,
+              textShadow: textShadows
+                .map(
+                  ({ offsetX, offsetY, blur, color }) =>
+                    `${offsetX}px ${offsetY}px ${blur}px ${color}`
+                )
+                .join(", "),
             }}
             onClick={() => setEditing(true)}
           >
