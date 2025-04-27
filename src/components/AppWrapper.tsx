@@ -13,7 +13,7 @@ export function AppWrapper({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-col h-full w-full max-w-7xl px-4">
       <Header dark={dark} setDark={setDark} />
-      <main className="flex h-full overflow-hidden">{children}</main>
+      <main className="flex h-full w-full overflow-hidden">{children}</main>
     </div>
   );
 }

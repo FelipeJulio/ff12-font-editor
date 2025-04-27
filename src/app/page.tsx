@@ -213,7 +213,7 @@ export default function Home() {
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden items-center pb-8">
+    <div className="h-full w-full flex flex-col overflow-hidden items-center pb-8">
       <Toolbar
         canvasRef={canvasRef}
         onAtlasUpload={handleAtlasUpload}
