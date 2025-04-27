@@ -2,8 +2,7 @@ name: Deploy Next.js site to GitHub Pages
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
